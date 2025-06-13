@@ -19,4 +19,4 @@ pymupdf4llm==0.0.24
 apscheduler==3.11.0
 httpx==0.28.1
 requests==2.32.3
-packaging==24.2
+packaging==25.0
