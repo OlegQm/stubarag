@@ -1,0 +1,13 @@
+python-dotenv==1.0.1
+streamlit==1.45.1
+langchain_openai==0.3.17
+langchain==0.3.25
+langchain_community==0.3.24
+pymongo==4.12.1
+pytest==8.3.5
+streamlit_oauth==0.1.14
+httpx==0.28.1
+tiktoken==0.9.0
+langgraph==0.4.5
+langfuse==2.60.5
+pillow==11.2.1

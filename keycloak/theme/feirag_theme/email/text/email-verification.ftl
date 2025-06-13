@@ -1,0 +1,1 @@
+${msg("custom.plainTextEmailVerificationBody",user.firstName, link, linkExpiration)?no_esc}

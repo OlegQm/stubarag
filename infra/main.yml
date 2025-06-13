@@ -1,0 +1,13 @@
+---
+- name: Install Docker on Ubuntu
+  hosts: all
+  remote_user: root # Change remote user to your sudo user!
+  become: true
+  vars:
+    arch_mapping: # Map ansible architecture {{ ansible_architecture }} names to Docker's architecture names
+      x86_64: amd64
+      aarch64: arm64
+  roles:
+    - docker
+    - rag
+    - users

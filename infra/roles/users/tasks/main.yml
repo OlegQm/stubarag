@@ -1,0 +1,17 @@
+---
+- name: Create users from user dictionary
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    groups: "{{ item.groups | join(',') }}"
+    state: present
+    shell: /bin/bash
+    createhome: yes
+  loop: "{{ users }}"
+  when: item.name is defined
+
+- name: Add SSH keys for users
+  ansible.builtin.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.key }}"
+  loop: "{{ users }}"
+  when: item.key is defined

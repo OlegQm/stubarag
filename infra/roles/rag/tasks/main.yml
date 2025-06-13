@@ -1,0 +1,73 @@
+---
+
+- name: Create group RAG
+  ansible.builtin.group:
+    name: rag
+    state: present
+
+- name: Create user RAG
+  ansible.builtin.user:
+    name: rag
+    group: rag
+    groups: docker
+    state: present
+    shell: /bin/bash
+    createhome: yes
+
+- name: Create directory for RAG's SSH keys
+  ansible.builtin.file:
+    path: /home/rag/.ssh
+    state: directory
+    owner: rag
+    group: rag
+    mode: "0700"
+
+# create new rsa key for user RAG if not exists
+# check if the key exists
+- name: Check if rsa key file exists
+  ansible.builtin.stat:
+    path: /home/rag/.ssh/id_rsa
+  register: rsa_key_file
+
+- name: Check if ed25519 key file exists
+  ansible.builtin.stat:
+    path: /home/rag/.ssh/id_ed25519
+  register: ed25519_key_file
+
+- name: Create new rsa key
+  ansible.builtin.openssh_keypair:
+    path: /home/rag/.ssh/id_rsa
+    type: rsa
+    size: 4096
+    owner: rag
+    group: rag
+    mode: "0600"
+    regenerate: never
+  register: ssh_keypair
+  when: rsa_key_file.stat.exists == False
+
+- name: Create new ed25519 sa key
+  ansible.builtin.openssh_keypair:
+    path: /home/rag/.ssh/id_ed25519
+    type: ed25519
+    size: 4096
+    owner: rag
+    group: rag
+    mode: "0600"
+    regenerate: never
+  register: ssh_ed25519_keypair
+  when: ed25519_key_file.stat.exists == False
+
+# print the public key
+- name: Print the public key
+  ansible.builtin.debug:
+    var: ssh_keypair.public_key
+
+# print the public key
+- name: Print the public key
+  ansible.builtin.debug:
+    var: ssh_ed25519_keypair.public_key
+
+# insert ed25519 key to authorized keys
+- name: Insert ed25519 public key to authorized_keys
+  lineinffile: .ssh/authorized_keys

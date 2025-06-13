@@ -1,0 +1,1 @@
+To integrate tests written by testers, it is enough to insert the tests written by testers in the [file](https://github.com/devopsacid/rag_bot_automatic_testing/blob/master/tests_collection/tests.py) into the file `src/api/llm_tests/llm_test_main.py` after the caption `################ INSERT YOUR TESTS BELOW ################`.
