@@ -1,0 +1,1 @@
+${msg("custom.plainTextPasswordResetBody",user.firstName, link, linkExpiration)?no_esc}

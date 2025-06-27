@@ -1,0 +1,393 @@
+# FEIRAG
+# Copyright (C) 2024 AI TEAM FEI STU
+# BORIS HNILA <xhnila@stuba.sk>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 0.1\n"
+"POT-Creation-Date: 2024-07-26 10:16+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: Boris Hnila <xhnila@stuba.sk>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: pygettext.py 1.5\n"
+
+
+#: __main__.py:15
+msgid "Control panel"
+msgstr "Ovládací panel"
+
+#: __main__.py:59
+msgid "Conversations review"
+msgstr "Kontrola konverzácií"
+
+#: __main__.py:17
+msgid "Knowledge base"
+msgstr "Báza znalostí"
+
+#: __main__.py:19
+msgid "Conversation history"
+msgstr "História konverzácií"
+
+#: __main__.py:21
+msgid "Statistics"
+msgstr "Štatistika"
+
+#: __main__.py:58
+msgid "Log out"
+msgstr "Odhlásiť sa"
+
+#: __main__.py:62
+msgid "Chat App Management"
+msgstr "Správa chat aplikácie"
+
+#: __main__.py:28
+msgid ":material/logout: Log out is disabled when logged in as _Guest_"
+msgstr ":material/logout: Ste prihlasení ako _Hosť_, odhlásenie je deaktivované"
+
+#: pages/control_panel.py:6
+msgid "🖥️ Control panel of :blue[FEI RAGBOT]"
+msgstr "🖥️ Ovládací panel :blue[FEI RAGBOT]"
+
+#: pages/control_panel.py:8
+msgid "Welcome to the administration interface of FEI RAGbot app"
+msgstr "Vitajte v administrátorskom rozhraní aplikácie FEI RAGbot"
+
+#: pages/history_administration.py:6
+msgid "💭 Conversation history"
+msgstr "💭 História konverzácií"
+
+#: pages/history_administration.py:11 && pages/history_administration.py:11
+msgid "Upload a file"
+msgstr "Nahrajte súbor"
+
+#: pages/Knowledge_administration.py:6
+msgid "📚 Knowledge base"
+msgstr "📚 Báza znalostí"
+
+#: pages/statistics.py:7
+msgid "📊 Statistics"
+msgstr "📊 Štatistika"
+
+#: pages/statistics.py:9
+msgid "Here will be some statistics about RAGbot usage."
+msgstr "Tu bude štatistika využívania RAGbota."
+
+#: admin_app/gui/style.py:159
+msgid "Drag and drop file here"
+msgstr "Nahrajte súbor kliknutím alebo presunutím sem"
+
+#: admin_app/gui/style.py:77
+msgid "Limit 200MB per file"
+msgstr "Limit 200MB na jeden súbor"
+
+#: admin_app/gui/style.py:79
+msgid "Browse files"
+msgstr "Prehliadať súbory"
+
+#: admin_app/gui/selection_buttons.py:32
+msgid "⚠️Error during deleting of: "
+msgstr "⚠️Chyba počas vymazávania záznamu: "
+
+#: admin_app/gui/selection_buttons.py:32
+msgid "⚠️Error during unlearning of: "
+msgstr "⚠️Chyba počas odnaučenia záznamu: "
+
+#: admin_app/gui/selection_buttons.py:32
+msgid "⚠️Error during learning of: "
+msgstr "⚠️Chyba počas učenia sa záznamu: "
+
+
+#: admin_app/gui/details_page_history.py:8
+msgid "Conversation details"
+msgstr "Detail konverzácie"
+
+#: admin_app/gui/details_page_history.py:9
+msgid "Back"
+msgstr "Späť"
+
+#: admin_app/gui/details_page_knowledge.py:6
+msgid "Document details"
+msgstr "Detail dokumentu"
+
+#: admin_app/gui/file_uploader.py:13
+msgid "UPLOAD FILE"
+msgstr "NAHRAJ SÚBOR"
+
+#: admin_app/gui/grid.py:43 && 71
+msgid "Delete"
+msgstr "Vymaž"
+
+#: admin_app/gui/grid.py:51 && 79
+msgid "Unlearn"
+msgstr "Zabudni"
+
+#: admin_app/gui/grid.py:59 && 87
+msgid "Learn"
+msgstr "Nauč sa"
+
+#: admin_app/gui/grid.py:97
+msgid "Selected:"
+msgstr "Vybrané:"
+
+#: admin_app/gui/grid.py:112
+msgid "Details"
+msgstr "Detail"
+
+#: admin_app/gui/grid.py:28
+msgid "Selection actions:"
+msgstr "Vyber akciu:"
+
+#: admin_app/utils/mongodb_knowledge.py:20
+msgid "Name"
+msgstr "Názov"
+
+#: admin_app/utils/mongodb_knowledge.py:21 && admin_app/utils/mongodb_history.py:20
+msgid "Date"
+msgstr "Dátum"
+
+#: admin_app/utils/mongodb_knowledge.py:22
+msgid "Author"
+msgstr "Autor"
+
+#: admin_app/utils/mongodb_knowledge.py:23
+msgid "Size"
+msgstr "Veľkosť"
+
+#: admin_app/utils/mongodb_knowledge.py:24 && admin_app/utils/mongodb_history.py:22
+msgid "Ingested"
+msgstr "Naučené"
+
+#: admin_app/utils/mongodb_knowledge.py:26
+msgid "Type"
+msgstr "Typ"
+
+#: admin_app/utils/mongodb_knowledge.py:86
+msgid "Requested document does not exist: "
+msgstr "Požadovaný dokument sa nenašiel: "
+
+#: admin_app/utils/mongodb_history.py:19
+msgid "Description"
+msgstr "Téma konverzácie"
+
+#: admin_app/utils/mongodb_history.py:21
+msgid "User"
+msgstr "Používateľ"
+
+#: admin_app/utils/mongodb_history.py:21
+msgid "Feedback"
+msgstr "Hodnotenie"
+
+#: admin_app/utils/mongodb_history.py:21
+msgid "Review"
+msgstr "Kontrola"
+
+#: admin_app/utils/mongodb_history.py:21
+msgid "Reviewed by"
+msgstr "Kontrolór"
+
+#: admin_app/utils/mongodb_history.py:46
+msgid "Requested conversation does not exist: "
+msgstr "Požadovaná konverzácia sa nenašla"
+
+#: admin_app/session/control.py:105
+msgid "Log in"
+msgstr "Prihlásenie"
+
+#: admin_app/session/control.py:135
+msgid "You have been logged out due to inactivity"
+msgstr "Boli ste odhlásení z dôvodu neaktivity"
+
+#: admin_app/session/control.py:141
+msgid "Something went wrong..."
+msgstr "Niečo sa pokazilo..."
+
+#: admin_app/session/control.py:141
+msgid "ACCESS REJECTED: Only members of _admin_ group can access admin interface !"
+msgstr "PRÍSTUP ODMIETNUTÝ: Iba členovia skupiny _admin_ majú prístup k správcovskému rozhraniu !"
+
+#: admin_app/gui/auth_page.py:141
+msgid "Admin Interface"
+msgstr "Správcovské rozhranie"
+
+#: common/session/exceptions.py:16
+msgid "Failed to recognize file type ! File formatting may be broken."
+msgstr "Nepodarilo sa rozpoznať formát súboru ! Súbor môže byť poškodený."
+
+#: common/session/exceptions.py:21
+msgid "Unsupported file type !"
+msgstr "Nepodporovaný typ súboru !"
+
+#: admin_app/utils/upload.py:21 && 37
+msgid "Error processing file "
+msgstr "Chyba pri spracovaní súboru "
+
+#: admin_app/utils/upload.py:21
+msgid "Error processing ZIP file "
+msgstr "Chyba pri spracovaní ZIP súboru "
+
+#: admin_app/utils/upload.py:71
+msgid "ZIP file uploaded successfully"
+msgstr "ZIP súbor bol úspešne nahraný"
+
+#: admin_pages/webscraper.py:52
+msgid "⚠️Something went wrong, try again later⚠️"
+msgstr "⚠️Niečo sa pokazilo, skúste znova neskôr⚠️"
+
+#: src/utils/upload.py:103
+msgid "Upload process finished successfully"
+msgstr "Nahrávanie prebehlo úspešne"
+
+#: src/utils/upload.py:106
+msgid "⚠️Webscraper process failed"
+msgstr "⚠️Scrapovanie stránky zlyhalo"
+
+#: src/utils/upload.py:111
+msgid "Webscraper process finished successfully"
+msgstr "Scrapovanie stránky prebehlo úspešne"
+
+#: src/utils/upload.py:114
+msgid "⚠️Upload process failed"
+msgstr "⚠️Nahrávanie zlyhalo"
+
+#: src/gui/upload_widgets.py:62
+msgid "Enter information about webpage"
+msgstr "Zadajte údaje o webovej stránke"
+
+#: src/gui/upload_widgets.py:67
+msgid "Description of the website"
+msgstr "Popis stránky"
+
+#: src/gui/upload_widgets.py:67
+msgid "Enter question and answer pair"
+msgstr "Zadajte dvojicu otázka a odpoveď"
+
+#: src/gui/upload_widgets.py:67
+msgid "Question"
+msgstr "Otázka"
+
+#: src/gui/upload_widgets.py:67
+msgid "Answer"
+msgstr "Odpoveď"
+
+#: src/gui/upload_widgets.py:69
+msgid "Submit"
+msgstr "Potvrdiť"
+
+#: src/gui/upload_widgets.py:73
+msgid "⚠️URL is empty!"
+msgstr "⚠️URL je prázdna!"
+
+#: src/gui/upload_widgets.py:76
+msgid "⚠️Description is empty!"
+msgstr "⚠️Popis je prázdny!"
+
+#: src/gui/upload_widgets.py:69
+msgid "Upload a file with descriptions and URLs"
+msgstr "Nahrajte súbor s popismi a URL adresami"
+
+#: src/gui/upload_widgets.py:69
+msgid "START SCRAPING"
+msgstr "ZAČAŤ SCRAPOVAŤ"
+
+#: src/gui/upload_widgets.py:105
+msgid "⚠️Question is empty!"
+msgstr "⚠️Otázka je prázdna!"
+
+#: src/gui/upload_widgets.py:108
+msgid "⚠️Answer is empty!"
+msgstr "⚠️Odpoveď je prázdna!"
+
+#: src/gui/details_page_webscraper.py:10
+msgid "Webscraper page details"
+msgstr "Detail stránky"
+
+#: src/gui/buttons_webscraper.py:39
+msgid "Deleting of pages finished"
+msgstr "Zmazanie stránok dokončené"
+
+#: src/utils/helpers.py:105
+msgid "Web description"
+msgstr "Popis stránky"
+
+#: src/gui/selection_buttons.py 36
+msgid "Delete process finished ✔"
+msgstr "Mazanie bolo dokončené ✔"
+
+#: src/gui/selection_buttons.py 176
+msgid "Learn process finished ✔"
+msgstr "Učenie bolo dokončené ✔"
+
+#: src/gui/selection_buttons.py 114
+msgid "Unlearn process finished ✔"
+msgstr "Odnaučenie bolo dokončené ✔"
+
+#: src/gui/faq_list.py 49
+msgid "⚠️Error during deleting of FAQ"
+msgstr "⚠️Chyba počas vymazávania FAQ"
+
+#: src/gui/faq_list.py 27
+msgid "🔍The list is empty"
+msgstr "🔍Zoznam je prázdny"
+
+#: src/utils/rag_endpoints.py 57
+msgid "⚠️Read timeout occurred. Failed to learn: "
+msgstr "⚠️Server príliš dlho neodpoveda. Nepodarilo sa naučiť dokument: "
+
+#: src/utils/rag_endpoints.py 61
+msgid "⚠️Connection timeout occurred. Failed to learn: "
+msgstr "⚠️Vypršal čas na spojenie so serverom. Nepodarilo sa naučiť dokument: "
+
+#: src/utils/rag_endpoints.py 65
+msgid "⚠️HTTP error occurred. Failed to learn: "
+msgstr "⚠️Nastala chyba HTTP spojenia. Nepodarilo sa naučiť dokument: "
+
+#: src/utils/rag_endpoints.py 69
+msgid "⚠️Something went wrong. Failed to learn: "
+msgstr "⚠️Niečo sa pokazilo. Nepodarilo sa naučiť dokument: "
+
+#: src/utils/conversations_evaluation.py 25
+msgid "No conversations for review"
+msgstr "Žiadne konverzácie na kontrolu"
+
+#: src/utils/conversations_evaluation.py 29
+msgid "Number of conversations to be reviewed: "
+msgstr "Počet konverzácií na kontrolu: "
+
+#: src/utils/conversations_evaluation.py 31
+msgid "All conversations are already reviewed! 🎉🥳 Come back later."
+msgstr "Všetky konverzácie boli prejdené! 🎉🥳 Skontrolujte znova neskôr."
+
+#: src/utils/conversations_evaluation.py 42
+msgid "Previous conversation"
+msgstr "Predchádzajúca konverzácia"
+
+#: src/utils/conversations_evaluation.py 48
+msgid "Next conversation"
+msgstr "Nasledujúca konverzácia"
+
+#: src/utils/conversations_evaluation.py 57
+msgid "No conversation content to display"
+msgstr "Konverzácia nemá obsah, ktorý by sa dal zobraziť"
+
+#: src/utils/conversations_evaluation.py 66
+msgid "Conversation has already been reviewed as GOOD ✅!"
+msgstr "Konverzácia už bola ohodnotená ako DOBRÁ ✅!"
+
+#: src/utils/conversations_evaluation.py 68
+msgid "Conversation has already been reviewed as BAD ❌!"
+msgstr "Konverzácia už bola ohodnotená ako ZLÁ ❌!"
+
+#: src/utils/conversations_evaluation.py 78
+msgid "❌ Bad conversation"
+msgstr "❌ Zlá konverzácia"
+
+#: src/utils/conversations_evaluation.py 85
+msgid "✅ Good conversation"
+msgstr "✅ Dobrá konverzácia"
+
+#: admin_pages/webscraper.py 25
+msgid "Bulk insert"
+msgstr "Hromadné nahratie"

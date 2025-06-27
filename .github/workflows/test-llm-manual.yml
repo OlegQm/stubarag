@@ -1,0 +1,66 @@
+name: Manual LLM Test
+
+permissions:
+  pull-requests: read
+  deployments: read
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test_llm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH key for LLM tests
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEV_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 168.119.165.3 >> ~/.ssh/known_hosts
+
+      - name: Run LLM API tests
+        run: |
+          ssh \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=60 \
+            -o ServerAliveCountMax=45 \
+            rag@168.119.165.3 << 'EOF'
+            set -e
+            echo "Running Pytest on LLM container"
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u devopsacid --password-stdin
+            docker pull ghcr.io/devopsacid/stubarag/stubarag-llm:latest
+
+            cname=stubarag-llm-tests
+            docker rm -f "$cname" >/dev/null 2>&1 || true
+
+            docker run --name "$cname" \
+              --network=stubarag_default \
+              -e OPENAI_API_KEY=${{ secrets.DEV_OPENAI_KEY }} \
+              -e OPENAI_PROJECTID=${{ vars.DEV_OPENAI_PROJECTID }} \
+              -e MONGODB_HOST=mongodb \
+              -e MONGODB_PORT=27017 \
+              -e MONGODB_DB=stubarag \
+              -e MONGODB_HISTORY_COLLECTION=history \
+              -e MONGODB_USER=${{ secrets.MONGODB_USERNAME }} \
+              -e MONGODB_PASSWORD=${{ secrets.MONGODB_PASSWORD }} \
+              -e BASE_URL=https://dev.agentkovac.sk \
+              -e REVERSE_PROXY_TESTER=${{ secrets.REVERSE_PROXY_TESTER }} \
+              ghcr.io/devopsacid/stubarag/stubarag-llm:latest \
+              pytest src/api/llm_tests/llm_test_main.py -c src/api/llm_tests/pytest.ini -vv
+
+            docker logs "$cname" 2>&1 | tail -n 10 > /tmp/test_results.txt
+            exit_code=$(docker inspect "$cname" --format='{{.State.ExitCode}}')
+
+            echo -n '{"content":"DEV 🔍 LLM tests result:\n```\n' > /tmp/discord.json
+            cat /tmp/test_results.txt | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/$/\\n/' | tr -d '\n' >> /tmp/discord.json
+            echo '```"}' >> /tmp/discord.json
+
+            curl -H "Content-Type: application/json" \
+              -d @/tmp/discord.json \
+              "${{ secrets.DISCORD_WEBHOOK }}"
+
+            rm -f /tmp/test_results.txt /tmp/discord.json
+            docker rm -f "$cname" >/dev/null 2>&1 || true
+            exit $exit_code
+          EOF

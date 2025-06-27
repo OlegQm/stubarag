@@ -1,0 +1,13 @@
+[theme]
+primaryColor="#0039A6"
+backgroundColor="#E6EBF6"
+secondaryBackgroundColor="#0039A6"
+textColor="#262730"
+font="sans serif"
+
+[client]
+showErrorDetails = false
+
+[server]
+enableCORS=false
+enableXsrfProtection=false

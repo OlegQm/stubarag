@@ -1,0 +1,19 @@
+users:
+  - name: max
+    key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEmRtGiePEpSaey1ziiJwjQ1QYBwRg4wgGuj4hK02N5Y max@t490
+    groups:
+      - sudo
+      - rag
+      - docker
+  - name: szabi
+    key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCfEDoGRxPEBQMF4hPNmHA6gtFzKjQdudFPpXBpY8e8duNVNu8d8d+kIFbrmhJq/Vlabq2CERg9IwEdpiMzXGMzCyUtVYMETeQC7/sePJIkmOLqHhq2B9w22WGf7/PEHQRKjRMtSjCul96JC9ey9reW2ZcKKkg6vqBwQMagdqClG56lyjl6XZSC9y578bXt4wTLqq9n26DinTItWxzuSdLJ2vLaTB8Wc9i9lSZHMHHwDuQpUEoHPNCy/IfIytnH+I3C6Phh3lL0Te13yYkVOTA3QAxuZpp3m4Z435sw89Cu8qiAi9kesCKJEJCAwGK28cmFXCsq4jY7itLPMirsutwoz6nGnaWh97e+kTx73dJhMt9MPqYE5IqdTdrEHvDmxUXJPSVPng5pdoMjns260CZ7SrAa4jTszM3yPoW1q2SmgKsbb4lGBFULtLKoQmaxzQY741dlqhRwyPB/lAZyKRWT9VbLQ/8gxgi+ojC26EHDEMfivp8tS4ZXwjcrJOmV0m0= rajszabi@gmail.com
+    groups:
+      - sudo
+      - rag
+      - docker
+  - name: oleg
+    key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINPHTKMCV1OXbW6AO9tlOS2eglLSl+wF5uBIjArT6vQw oleg
+    groups:
+      - rag
+      - docker
+      - sudo

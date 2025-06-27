@@ -1,0 +1,249 @@
+name: Dev Deploy to Remote Server dev.agentkovac.sk/com
+
+permissions:
+  pull-requests: read
+  deployments: read
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  build_dev:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: ${{ github.event.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Send notification to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\": \"DEV :rocket: ${{env.PR_NUMBER}} deployment started for pull request:\t${{env.PR_URL}}\"}" \
+            "${DISCORD_WEBHOOK}"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker images
+        run: |
+          touch .env
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u devopsacid --password-stdin
+          docker compose -f docker-compose-dev.yaml build
+          docker compose -f docker-compose-dev.yaml push
+
+  deploy_dev:
+    needs: build_dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{secrets.DEV_SSH_KEY}}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 168.119.165.3 >> ~/.ssh/known_hosts
+
+      - name: Deploy and run Docker Compose
+        env:
+          BRANCH: ${{ github.head_ref }}
+          ENV: dev
+          FRONTEND_HOSTNAME: dev.agentkovac.sk
+        run: |
+          ssh -o StrictHostKeyChecking=no rag@168.119.165.3 << 'EOF'
+            set -e
+            docker ps -a --filter "name=stubarag-llm" -q | xargs -r docker rm -f
+            cd /home/rag/stubarag
+            echo "Stopping and removing the containers"
+            docker compose stop
+            echo
+            echo "Pulling the latest changes from the repository"
+            echo "${{ env.BRANCH }}"
+            git fetch
+            git checkout "${{ env.BRANCH }}"
+            git pull
+            echo
+            echo
+            echo "DEV setup"
+            echo "env: ${{env.ENV}} | frontend: ${{env.FRONTEND_HOSTNAME}}"
+            echo "ENV=${{env.ENV}}" > .env
+            echo "FRONTEND_HOSTNAME=${{env.FRONTEND_HOSTNAME}}" >> .env
+            echo "OPENAI_API_KEY=${{secrets.DEV_OPENAI_KEY}}" >> .env
+            echo "OPENAI_PROJECTID=${{vars.EV_OPENAI_PROJECTID}}" >>.env
+            echo "GUI_PASSWORD=${{secrets.DEV_PASS}}" >> .env
+            echo "DISCORD_TOKEN=${{secrets.DEV_DISCORD_TOKEN}}" >> .env
+            echo "MONGODB_USER=${{secrets.MONGODB_USERNAME}}" >> .env
+            echo "MONGODB_PASSWORD=${{secrets.MONGODB_PASSWORD}}" >> .env
+            echo "MONGODB_INITDB_ROOT_USERNAME=${{secrets.MONGODB_USERNAME}}" >> .env
+            echo "MONGODB_INITDB_ROOT_PASSWORD=${{secrets.MONGODB_PASSWORD}}" >> .env
+            echo "KC_BOOTSTRAP_ADMIN_USERNAME=${{secrets.KEYCLOAK_ADMIN_USERNAME}}" >> .env
+            echo "KC_BOOTSTRAP_ADMIN_PASSWORD=${{secrets.KEYCLOAK_ADMIN_PASSWORD}}" >> .env
+            echo "KC_DB_USERNAME=${{secrets.POSTGRESDB_USERNAME}}" >> .env
+            echo "KC_DB_PASSWORD=${{secrets.POSTGRESDB_PASSWORD}}" >> .env
+            echo "POSTGRES_USER=${{secrets.POSTGRESDB_USERNAME}}" >> .env
+            echo "POSTGRES_PASSWORD=${{secrets.POSTGRESDB_PASSWORD}}" >> .env
+            echo "REVERSE_PROXY_ADMIN=${{secrets.REVERSE_PROXY_ADMIN}}" >> .env
+            echo "$(cut -d: -f1 <<< "${{ secrets.REVERSE_PROXY_ADMIN }}"):$(openssl passwd -apr1 "$(cut -d: -f2- <<< "${{ secrets.REVERSE_PROXY_ADMIN }}")")" > nginx/.htpasswd
+            echo "$(cut -d: -f1 <<< "${{ secrets.REVERSE_PROXY_ADMIN }}"):$(openssl passwd -apr1 "$(cut -d: -f2- <<< "${{ secrets.REVERSE_PROXY_ADMIN }}")")" > nginx/.htpasswd_testers
+            echo "$(cut -d: -f1 <<< "${{ secrets.REVERSE_PROXY_TESTER }}"):$(openssl passwd -apr1 "$(cut -d: -f2- <<< "${{ secrets.REVERSE_PROXY_TESTER }}")")" >> nginx/.htpasswd_testers
+            echo "REVERSE_PROXY_TESTER=${{secrets.REVERSE_PROXY_TESTER}}" >> .env
+            echo "Securing .env file"
+            chown rag:rag .env
+            chmod 600 .env
+            ls -l .env
+            echo "Securing .htpasswd file"
+            chown rag:rag nginx/.htpasswd
+            chmod 604 nginx/.htpasswd
+            echo
+            echo "Securing .htpasswd_testers file"
+            chown rag:rag nginx/.htpasswd_testers
+            chmod 604 nginx/.htpasswd_testers
+            echo
+            echo
+            echo "Building and deploying the project"
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u devopsacid --password-stdin
+            docker compose -f docker-compose-dev.yaml pull
+            docker compose -f docker-compose-dev.yaml up -d
+          EOF
+
+      - name: Send notification to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\": \"DEV :rocket: ${{env.PR_NUMBER}} is deployed.\nWell let's start testing.\"}" \
+            "${DISCORD_WEBHOOK}"
+
+  test_backend:
+    needs: deploy_dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{secrets.DEV_SSH_KEY}}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 168.119.165.3 >> ~/.ssh/known_hosts
+
+      - name: Run Pytest
+        run: |
+          ssh -o StrictHostKeyChecking=no rag@168.119.165.3 << 'EOF'
+            set -e
+            echo "Running Pytest on backend container"
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u devopsacid --password-stdin
+            docker pull ghcr.io/devopsacid/stubarag/stubarag-backend:latest
+            docker run \
+              --network=stubarag_default \
+              -e OPENAI_API_KEY=${{secrets.DEV_OPENAI_KEY}} \
+              -e EMBEDDING_MODEL=text-embedding-3-small \
+              -e CHROMA_COLLECTION_NAME=stubarag \
+              -e CHROMA_HOST=chromadb \
+              -e CHROMA_PORT=8000 \
+              -e DEV_USER=devuser \
+              -e MONGODB_HOST=mongodb \
+              -e MONGODB_PORT=27017 \
+              -e MONGODB_USER=${{secrets.MONGODB_USERNAME}} \
+              -e MONGODB_PASSWORD=${{secrets.MONGODB_PASSWORD}} \
+              -e MONGODB_DB=stubarag \
+              -e MONGODB_HISTORY_COLLECTION=history \
+              ghcr.io/devopsacid/stubarag/stubarag-backend:latest /bin/bash -c "pytest -c app/tests/pytest.ini -vv"
+          EOF
+
+      - name: Send notification to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\": \"DEV :mag_right: ${{env.PR_NUMBER}} backend tested. Well done!\"}" \
+            "${DISCORD_WEBHOOK}"
+
+  test_frontend:
+    needs: deploy_dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{secrets.DEV_SSH_KEY}}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 168.119.165.3 >> ~/.ssh/known_hosts
+
+      - name: Run Pytest
+        run: |
+          ssh -o StrictHostKeyChecking=no rag@168.119.165.3 << 'EOF'
+            set -e
+            echo "Running Pytest on frontend container"
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u devopsacid --password-stdin
+            docker pull ghcr.io/devopsacid/stubarag/stubarag-frontend:latest
+            docker run \
+              --network=stubarag_default \
+              -e OPENAI_API_KEY=${{secrets.DEV_OPENAI_KEY}} \
+              -e OPENAI_PROJECTID=${{vars.DEV_OPENAI_PROJECTID}} \
+              -e MONGODB_HOST=mongodb \
+              -e MONGODB_PORT=27017 \
+              -e MONGODB_DB=stubarag \
+              -e MONGODB_HISTORY_COLLECTION=history \
+              -e MONGODB_USER=${{secrets.MONGODB_USERNAME}} \
+              -e MONGODB_PASSWORD=${{secrets.MONGODB_PASSWORD}} \
+              ghcr.io/devopsacid/stubarag/stubarag-frontend:latest /bin/bash -c "pytest -v -k \
+              'not (test_load_conversation or test_toggle_emphasis or test_top_button or test_display or test_Session_intitialization or test_chat or test_new_session or test_new_conversation or test_update_title or test_record_history or test_sumarize)'"
+          EOF
+
+      - name: Send notification to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\": \"DEV :mag_right: ${{env.PR_NUMBER}} frontend tested. See me soon!\"}" \
+            "${DISCORD_WEBHOOK}"
+
+
+  # secops-scan-trivy:
+  #   needs: build_dev
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #         clean: true
+
+  #     - name: Run Trivy vulnerability scanner
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         scan-type: image
+  #         scan-ref: 'ghcr.io/devopsacid/stubarag/stubarag-backend:latest,ghcr.io/devopsacid/stubarag/stubarag-frontend:latest,ghcr.io/devopsacid/stubarag/stubarag-llm:latest'
+  #         security-checks: vulnerability
+  #         format: table
+  #         exit-code: 1
+  #         ignore-unfixed: true
+  #         severity: MEDIUM,HIGH,CRITICAL
+
+  #     - name: Send notification to Discord
+  #       env:
+  #         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+  #         PR_NUMBER: ${{ github.event.number }}
+  #       run: |
+  #         curl -H "Content-Type: application/json" \
+  #           -d "{\"content\": \"DEV :mag_right: ${{env.PR_NUMBER}} containers scanned. SecOps is right.\"}" \
+  #           "${DISCORD_WEBHOOK}"

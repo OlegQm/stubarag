@@ -1,0 +1,116 @@
+name: PROD Deploy to Remote Server prod.agentkovac.sk/com
+
+permissions:
+  pull-requests: read
+  deployments: read
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy_prod:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: ${{ github.event.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+    - name: Send notification to Discord
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        PR_URL: ${{ github.event.pull_request.html_url }}
+        PR_NUMBER: ${{ github.event.number }}
+      run: |
+        curl -H "Content-Type: application/json" \
+          -d "{\"content\": \"PROD :white_check_mark: ${{env.PR_NUMBER}} deployment started for pull request:\t${{env.PR_URL}}\"}" \
+          "${DISCORD_WEBHOOK}"
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        clean: true
+
+    - name: Set up SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{secrets.PROD_SSH_KEY}}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        ssh-keyscan -H 78.47.150.8 >> ~/.ssh/known_hosts
+
+    - name: Switch to main branch and update
+      env:
+        ENV: prod
+        FRONTEND_HOSTNAME: prod.agentkovac.sk
+      run: |
+        ssh -o StrictHostKeyChecking=no rag@78.47.150.8 << 'EOF'
+          set -e
+          cd /home/rag/stubarag
+          echo
+          echo "Stopping and removing the containers"
+          docker compose stop
+          echo
+          echo "Switching to main branch and pulling latest changes"
+          git checkout main
+          git pull origin main
+          echo
+          echo "PROD setup"
+          echo "env: ${{env.ENV}} | domain: ${{env.FRONTEND_HOSTNAME}}"
+          echo "ENV=${{env.ENV}}" > .env
+          echo "FRONTEND_HOSTNAME=${{env.FRONTEND_HOSTNAME}}" >> .env
+          echo "OPENAI_API_KEY=${{secrets.PROD_OPENAI_KEY}}" >> .env
+          echo "OPENAI_PROJECTID=${{vars.DEV_OPENAI_PROJECTID}}" >> .env
+          echo "GUI_PASSWORD=${{secrets.PROD_PASS}}" >> .env
+          echo "DISCORD_TOKEN=${{secrets.PROD_DISCORD_TOKEN}}" >> .env
+          echo "MONGODB_USER=${{secrets.MONGODB_USERNAME}}" >> .env
+          echo "MONGODB_PASSWORD=${{secrets.MONGODB_PASSWORD}}" >> .env
+          echo "MONGODB_INITDB_ROOT_USERNAME=${{secrets.MONGODB_USERNAME}}" >> .env
+          echo "MONGODB_INITDB_ROOT_PASSWORD=${{secrets.MONGODB_PASSWORD}}" >> .env
+          echo "KC_BOOTSTRAP_ADMIN_USERNAME=${{secrets.KEYCLOAK_ADMIN_USERNAME}}" >> .env
+          echo "KC_BOOTSTRAP_ADMIN_PASSWORD=${{secrets.KEYCLOAK_ADMIN_PASSWORD}}" >> .env
+          echo "POSTGRES_USER=${{secrets.POSTGRESDB_USERNAME}}" >> .env
+          echo "POSTGRES_PASSWORD=${{secrets.POSTGRESDB_PASSWORD}}" >> .env
+          echo "KC_DB_USERNAME=${{secrets.POSTGRESDB_USERNAME}}" >> .env
+          echo "KC_DB_PASSWORD=${{secrets.POSTGRESDB_PASSWORD}}" >> .env
+          echo "POSTGRES_USER=${{secrets.POSTGRESDB_USERNAME}}" >> .env
+          echo "POSTGRES_PASSWORD=${{secrets.POSTGRESDB_PASSWORD}}" >> .env
+          echo "REVERSE_PROXY_ADMIN=${{secrets.REVERSE_PROXY_ADMIN}}" >> .env
+          echo "$(cut -d: -f1 <<< "${{ secrets.REVERSE_PROXY_ADMIN }}"):$(openssl passwd -apr1 "$(cut -d: -f2- <<< "${{ secrets.REVERSE_PROXY_ADMIN }}")")" > nginx/.htpasswd
+          echo "$(cut -d: -f1 <<< "${{ secrets.REVERSE_PROXY_ADMIN }}"):$(openssl passwd -apr1 "$(cut -d: -f2- <<< "${{ secrets.REVERSE_PROXY_ADMIN }}")")" > nginx/.htpasswd_testers
+          echo "$(cut -d: -f1 <<< "${{ secrets.REVERSE_PROXY_TESTER }}"):$(openssl passwd -apr1 "$(cut -d: -f2- <<< "${{ secrets.REVERSE_PROXY_TESTER }}")")" >> nginx/.htpasswd_testers
+          echo "REVERSE_PROXY_TESTER=${{secrets.REVERSE_PROXY_TESTER}}" >> .env
+          echo "Securing .env file"
+          chown rag:rag .env
+          chmod 600 .env
+          ls -l .env
+          echo
+          echo "Securing .htpasswd file"
+          chown rag:rag nginx/.htpasswd
+          chmod 604 nginx/.htpasswd
+          echo
+          echo "Securing .htpasswd_testers file"
+          chown rag:rag nginx/.htpasswd_testers
+          chmod 604 nginx/.htpasswd_testers
+          echo
+          echo "Building and deploying project"
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u devopsacid --password-stdin
+          docker compose -f docker-compose-prod.yaml pull
+          docker compose -f docker-compose-prod.yaml up --build -d
+        EOF
+
+    - name: Send notification to Discord
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        PR_NUMBER: ${{ github.event.number }}
+      run: |
+        curl -H "Content-Type: application/json" \
+          -d "{\"content\": \"PROD :white_check_mark: ${{env.PR_NUMBER}} is deployed. Well done!\"}" \
+          "${DISCORD_WEBHOOK}"

@@ -1,0 +1,530 @@
+services:
+  mongodb:
+    image: mongodb/mongodb-atlas-local:8.0.5
+    hostname: "mongodb"
+    container_name: stubarag-mongodb
+    volumes:
+      - mongodb-data:/data/db
+      - mongodb-config:/data/configdb
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: admin
+      MONGODB_INITDB_ROOT_PASSWORD: admin
+    expose:
+      - "27017"
+
+  chromadb:
+    image: chromadb/chroma:1.0.6
+    container_name: stubarag-chromadb
+    volumes:
+      - chromadb-data:/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/data
+      - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-FALSE}
+    expose:
+      - "8000"
+
+  reverse-proxy:
+    image: nginx:latest
+    container_name: stubarag-reverse-proxy
+    env_file:
+      - .env
+    ports:
+      - 80:8501 # frontend
+      - 443:433 # ssl
+      - 81:8502 # admin
+      - 8080:8080 # backend
+      - 8088:8088 # keycloak
+      - 8030:8030 # langfuse
+      - 9621:9621 # lightrag
+      - 8507:8507 # llm
+    volumes:
+      - ./.local-ssl/nginx-selfsigned.crt:/etc/ssl/cert.crt
+      - ./.local-ssl/nginx-selfsigned.key:/etc/ssl/cert.key
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/.htpasswd:/etc/apache2/.htpasswd
+      - ./nginx/.htpasswd_testers:/etc/apache2/.htpasswd_testers
+    depends_on:
+      - frontend
+      - backend
+      - keycloak
+      - langfuse-web
+      - llm
+      - lightrag
+    links:
+      - frontend
+      - backend
+      - keycloak
+      - langfuse-web
+      - llm
+      - lightrag
+
+  backend:
+    build: ./api/
+    image: stubarag-backend:latest
+    container_name: stubarag-backend
+    depends_on:
+      - mongodb
+      - chromadb
+    environment:
+      - DEBUG_MODE=1
+      - TZ=Europe/Bratislava
+      - EMBEDDING_MODEL=text-embedding-3-large
+      - DEV_USER=admin # user which saves the data into vectordb
+      - CHROMA_COLLECTION_NAME=knowledge
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=admin
+      - MONGODB_DB=stubarag
+      - MONGODB_HISTORY_COLLECTION=history
+    env_file:
+      - .env
+    expose:
+      - "8080"
+    links:
+      - mongodb
+      - chromadb
+
+  llm:
+    build:
+      context: ./
+      dockerfile: ./llm/Dockerfile
+    image: stubarag-llm:latest
+    container_name: stubarag-llm
+    depends_on:
+      - backend
+      - mongodb
+      - lightrag
+    env_file:
+      - .env
+    environment:
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=stubarag
+      - MONGODB_HISTORY_COLLECTION=history
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=admin
+      - DEBUG_MODE=1
+      - TZ=Europe/Bratislava
+      - LANGFUSE_SECRET_KEY=sk-lf-912749f3-9aaa-4a5d-80af-6d2fb52e95ad
+      - LANGFUSE_PUBLIC_KEY=pk-lf-fd6bb985-53b5-49e6-9478-1c16aa093aa2
+    expose:
+      - "8507"
+    links:
+      - mongodb
+      - chromadb
+      - backend
+      - lightrag
+
+  lightrag:
+    build:
+      context: https://github.com/HKUDS/LightRAG.git#v1.3.8
+      dockerfile: Dockerfile
+    image: lightrag:latest
+    container_name: lightrag
+    expose:
+      - "9621"
+    volumes:
+      - ./lightrag/data/rag_storage:/app/data/rag_storage
+      - ./lightrag/data/inputs:/app/data/inputs
+      - ./lightrag/config.ini:/app/config.ini
+    environment:
+      - TZ=UTC
+      - HOST=0.0.0.0
+      - PORT=9621
+      - WORKERS=4
+      - CORS_ORIGINS=http://localhost
+      - VITE_BACKEND_URL=http://localhost:9621
+      - VITE_API_PROXY=true
+      - VITE_API_ENDPOINTS=/,/api,/documents,/graphs,/graph,/health,/query,/docs,/openapi.json,/login,/auth-status
+      - LIGHTRAG_KV_STORAGE=MongoKVStorage
+      - LIGHTRAG_VECTOR_STORAGE=MongoVectorDBStorage
+      - LIGHTRAG_GRAPH_STORAGE=Neo4JStorage
+      - LIGHTRAG_DOC_STATUS_STORAGE=JsonDocStatusStorage
+      - MONGO_URI=mongodb://admin:admin@mongodb:27017/
+      - MONGO_DATABASE=lightrag_knowledge
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=LightRAGGraphStoragePassword
+      - LLM_BINDING=openai
+      - LLM_MODEL=gpt-4.1
+      - LLM_BINDING_HOST=https://api.openai.com/v1
+      - LLM_BINDING_API_KEY=${OPENAI_API_KEY}
+      - MAX_PARALLEL_INSERT=4
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMBEDDING_BINDING=openai
+      - EMBEDDING_BINDING_HOST=https://api.openai.com/v1
+      - EMBEDDING_MODEL=text-embedding-3-large
+      - EMBEDDING_DIM=3072
+      - SUMMARY_LANGUAGE=Slovak
+      - AUTH_ACCOUNTS=admin:admin
+      - TOKEN_SECRET=very-secure-localhost-secret
+      - TOKEN_EXPIRE_HOURS=4
+      - WHITELIST_PATHS=/query
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_started 
+      neo4j:
+        condition: service_healthy
+    links:
+      - mongodb
+      - neo4j
+
+  neo4j:
+    image: neo4j:5.26.5-community
+    container_name: neo4j
+    volumes:
+      - neo4j-logs:/logs
+      - neo4j-config:/config
+      - neo4j-data:/data
+      - neo4j-plugins:/plugins
+    environment:
+      - NEO4J_AUTH=neo4j/LightRAGGraphStoragePassword
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_server_bolt_listen__address=0.0.0.0:7687
+      - NEO4J_server_bolt_advertised__address=neo4j:7687
+    expose:
+      - "7687"
+    restart: always
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "LightRAGGraphStoragePassword", "RETURN 1"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+      timeout: 5s
+
+  frontend:
+    build:
+      context: ./
+      dockerfile: ./frontend/Dockerfile
+    image: stubarag-frontend:latest
+    container_name: stubarag-frontend
+    depends_on:
+      - llm
+      - backend
+      - mongodb
+    env_file:
+      - .env
+    environment:
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=stubarag
+      - MONGODB_HISTORY_COLLECTION=history
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=admin
+      - GUEST_MODE=1
+      - DEBUG_MODE=1
+      - TZ=Europe/Bratislava
+
+      - AUTHORIZE_URL=http://${FRONTEND_HOSTNAME}:8088/realms/feirag/protocol/openid-connect/auth
+      - TOKEN_URL=http://keycloak:8088/realms/feirag/protocol/openid-connect/token
+      - REFRESH_TOKEN_URL=http://keycloak:8088/realms/feirag/protocol/openid-connect/token
+      - LOGOUT_URL=http://keycloak:8088/realms/feirag/protocol/openid-connect/logout
+      - REDIRECT_URI=http://${FRONTEND_HOSTNAME}
+
+      # Client secret just for dev phase, regenerate and move to .env before prod
+      - CLIENT_SECRET=0JDd3tGuNwpFZuwZyOouSMM2MG98xmko
+      - CLIENT_ID=chat_app_client
+      - SCOPE=openid email profile
+      - STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=full
+      - STREAMLIT_CLIENT_TOOLBAR_MODE=developer
+      - STREAMLIT_LOGGER_LEVEL=debug
+    expose:
+      - "8501"
+    links:
+      - mongodb
+      - chromadb
+      - backend
+      - keycloak
+      - langfuse-web
+      - llm
+
+  admin:
+    build:
+      context: ./
+      dockerfile: ./admin/Dockerfile
+    image: stubarag-admin:latest
+    container_name: stubarag-admin
+    depends_on:
+      - backend
+      - mongodb
+    env_file:
+      - .env
+    environment:
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=stubarag
+      - MONGODB_HISTORY_COLLECTION=history
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=admin
+      - GUEST_MODE=1
+      - DEBUG_MODE=1
+      - TZ=Europe/Bratislava
+
+      - AUTHORIZE_URL=http://${FRONTEND_HOSTNAME}:8088/realms/feirag/protocol/openid-connect/auth
+      - TOKEN_URL=http://keycloak:8088/realms/feirag/protocol/openid-connect/token
+      - REFRESH_TOKEN_URL=http://keycloak:8088/realms/feirag/protocol/openid-connect/token
+      - LOGOUT_URL=http://keycloak:8088/realms/feirag/protocol/openid-connect/logout
+      - REDIRECT_URI=http://${FRONTEND_HOSTNAME}:81
+
+      # Client secret just for dev phase, regenerate and move to .env before prod
+      - CLIENT_SECRET=dYQqj9nYH8lZiGTUoBAKkTCRxtrm4Jx1
+      - CLIENT_ID=admin_client
+      - SCOPE=openid email profile
+      - STREAMLIT_CLIENT_SHOW_ERROR_DETAILS=full
+      - STREAMLIT_CLIENT_TOOLBAR_MODE=developer
+      - STREAMLIT_LOGGER_LEVEL=debug
+    expose:
+      - "8502"
+    links:
+      - mongodb
+      - chromadb
+      - backend
+      - keycloak
+
+  discord:
+    build:
+      context: ./
+      dockerfile: ./discord-chatbot/Dockerfile
+    depends_on:
+      - llm
+      - backend
+      - mongodb
+    env_file:
+      - .env
+    environment:
+      - DEBUG_MODE=1
+      - TZ=Europe/Bratislava
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=stubarag
+      - MONGODB_HISTORY_COLLECTION=history
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=admin
+      - FEI_NEWS_SERVER=skuty's AI test server
+      - FEI_NEWS_CHANNEL=news
+      - FEI_NEWS_AUTHOR=.skuty.
+    expose:
+      - "8505"
+    links:
+      - mongodb
+      - chromadb
+      - backend
+
+  keycloak:
+    image: keycloak/keycloak:26.1.2
+    container_name: keycloak
+    environment:
+      # Set access passwords - located in .env file
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      - KC_DB_USERNAME=admin
+      - KC_DB_PASSWORD=admin
+
+      # Other parameters
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres/keycloakdb
+      - KC_PROXY_HEADERS=xforwarded
+      - KC_HOSTNAME_STRICT=false
+      - KC_HTTPS_ENABLED=false
+      - KC_HTTP_ENABLED=true
+      - PROXY_ADDRESS_FORWARDING=true
+      - KC_HOSTNAME=http://${FRONTEND_HOSTNAME}:8088
+    expose:
+      - "8088"
+    volumes:
+      - ./keycloak/${ENV}:/opt/keycloak/data/import
+      - ./keycloak/theme:/opt/keycloak/themes
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    command:
+      - start
+      - --import-realm
+      - --http-port=8088
+
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=keycloakdb
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    expose:
+      - "5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: langfuse-worker
+    restart: always
+    depends_on: &langfuse-depends-on
+      langfuse-postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    expose:
+      - "3030"
+    environment: &langfuse-worker-env
+      DATABASE_URL: postgresql://admin:admin@langfuse-postgres:5432/langfuse
+      SALT: "mysalt"
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000" # generate via `openssl rand -hex 32`
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-true}
+      CLICKHOUSE_MIGRATION_URL: ${CLICKHOUSE_MIGRATION_URL:-clickhouse://clickhouse:9000}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_CLUSTER_ENABLED: ${CLICKHOUSE_CLUSTER_ENABLED:-false}
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_EVENT_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: ${LANGFUSE_S3_EVENT_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY:-miniosecret}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: ${LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT:-http://minio:9000}
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE:-true}
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: ${LANGFUSE_S3_EVENT_UPLOAD_PREFIX:-events/}
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${LANGFUSE_S3_MEDIA_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: ${LANGFUSE_S3_MEDIA_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY:-miniosecret}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: ${LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT:-http://minio:9000}
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE:-true}
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: ${LANGFUSE_S3_MEDIA_UPLOAD_PREFIX:-media/}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_AUTH: ${REDIS_AUTH:-myredissecret}
+
+  langfuse-web:
+    image: langfuse/langfuse:3
+    container_name: langfuse-web
+    restart: always
+    depends_on: *langfuse-depends-on
+    expose:
+      - "8030"
+    environment:
+      <<: *langfuse-worker-env
+      NEXTAUTH_URL: http://localhost:8030
+      PORT: 8030
+      NEXTAUTH_SECRET: mysecret
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-cm4rbjrq30001sgjjb3r7iua7}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-aiteam}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-cm4rbjxkg0006sgjjg0fxvk9b}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-stubarag}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:-pk-lf-fd6bb985-53b5-49e6-9478-1c16aa093aa2}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:-sk-lf-912749f3-9aaa-4a5d-80af-6d2fb52e95ad}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@agentkovac.sk}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-admin}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-admin123}
+      LANGFUSE_SDK_CI_SYNC_PROCESSING_ENABLED: ${LANGFUSE_SDK_CI_SYNC_PROCESSING_ENABLED:-false}
+      LANGFUSE_READ_FROM_POSTGRES_ONLY: ${LANGFUSE_READ_FROM_POSTGRES_ONLY:-false}
+      LANGFUSE_READ_FROM_CLICKHOUSE_ONLY: ${LANGFUSE_READ_FROM_CLICKHOUSE_ONLY:-true}
+      LANGFUSE_RETURN_FROM_CLICKHOUSE: ${LANGFUSE_RETURN_FROM_CLICKHOUSE:-true}
+      KEEP_ALIVE_TIMEOUT: ${KEEP_ALIVE_TIMEOUT:-65s}
+
+
+  langfuse-postgres:
+    image: postgres:latest
+    container_name: langfuse-postgres
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=langfuse
+    expose:
+      - "5433"
+    volumes:
+      - langfuse-data:/var/lib/postgresql/data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    environment:
+      - CLICKHOUSE_USER=clickhouse
+      - CLICKHOUSE_PASSWORD=clickhouse
+    expose:
+      - "8123"
+      - "9000"
+    volumes:
+      - langfuse-clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+    links:
+      - langfuse-postgres
+
+  minio:
+    image: minio/minio
+    restart: always
+    container_name: minio
+    entrypoint: sh
+    # create the 'langfuse' bucket before starting the service
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: miniosecret
+    volumes:
+      - langfuse-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: always
+    command: >
+      --requirepass myredissecret
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  postgres:
+    driver: local
+  langfuse-data:
+    driver: local
+  langfuse-clickhouse-data:
+    driver: local
+  langfuse-minio-data:
+    driver: local
+  mongodb-data:
+    driver: local
+  mongodb-config:
+    driver: local
+  chromadb-data:
+    driver: local
+  neo4j-logs:
+    driver: local
+  neo4j-config:
+    driver: local
+  neo4j-data:
+    driver: local
+  neo4j-plugins:
+    driver: local
